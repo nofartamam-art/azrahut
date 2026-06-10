@@ -490,6 +490,95 @@
     animation: fadeIn 0.3s ease;
   }
 
+  /* ===== CELEBRATION ===== */
+  .confetti-container {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    z-index: 999;
+    overflow: hidden;
+  }
+  .confetti-piece {
+    position: absolute;
+    top: -12px;
+    animation: confettiFall linear forwards;
+    border-radius: 2px;
+  }
+  @keyframes confettiFall {
+    0%   { transform: translateY(0) rotate(0deg);    opacity: 1; }
+    80%  { opacity: 1; }
+    100% { transform: translateY(110vh) rotate(800deg); opacity: 0; }
+  }
+  .celebrate-card {
+    background: white;
+    border-radius: var(--radius);
+    padding: 32px 24px;
+    text-align: center;
+    box-shadow: var(--shadow);
+    animation: fadeIn 0.4s ease;
+  }
+  .celebrate-emoji {
+    font-size: 4.5rem;
+    display: block;
+    animation: bounce 0.7s ease infinite alternate;
+  }
+  .celebrate-title {
+    font-size: 1.7rem;
+    font-weight: 900;
+    color: var(--blue-deep);
+    margin: 12px 0 6px;
+  }
+  .celebrate-sub {
+    font-size: 0.95rem;
+    color: var(--gray);
+    margin-bottom: 16px;
+  }
+  .celebrate-stars {
+    font-size: 3rem;
+    letter-spacing: 6px;
+    margin: 12px 0;
+  }
+  .game-complete-card {
+    background: linear-gradient(135deg, #003F87, #1565C0);
+    border-radius: var(--radius);
+    padding: 36px 24px;
+    text-align: center;
+    box-shadow: 0 8px 40px rgba(0,63,135,0.5);
+    color: white;
+    animation: fadeIn 0.5s ease;
+  }
+  .trophy-emoji {
+    font-size: 5rem;
+    display: block;
+    animation: trophyPop 0.6s cubic-bezier(0.17,0.89,0.32,1.5);
+  }
+  @keyframes trophyPop {
+    0%   { transform: scale(0) rotate(-10deg); opacity: 0; }
+    100% { transform: scale(1) rotate(0deg);  opacity: 1; }
+  }
+  .game-complete-title {
+    font-size: 1.9rem;
+    font-weight: 900;
+    margin: 14px 0 8px;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .game-complete-sub {
+    font-size: 1rem;
+    opacity: 0.85;
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+  .game-total-stars {
+    font-size: 2.5rem;
+    letter-spacing: 4px;
+    margin: 16px 0;
+    color: var(--gold);
+  }
+  @keyframes bounce {
+    from { transform: scale(1) translateY(0); }
+    to   { transform: scale(1.08) translateY(-6px); }
+  }
+
   /* ===== SCROLLBAR ===== */
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -821,12 +910,37 @@ function isLevelUnlocked(chapIdx, levelKey) {
 function render() {
   const app = document.getElementById('app');
   switch(S.screen) {
-    case 'menu': app.innerHTML = renderMenu(); break;
-    case 'levelSelect': app.innerHTML = renderLevelSelect(); break;
-    case 'playing': app.innerHTML = renderPlaying(); break;
-    case 'chapterEnd': app.innerHTML = renderChapterEnd(); break;
+    case 'menu':              app.innerHTML = renderMenu(); break;
+    case 'levelSelect':       app.innerHTML = renderLevelSelect(); break;
+    case 'playing':           app.innerHTML = renderPlaying(); break;
+    case 'chapterEnd':        app.innerHTML = renderChapterEnd(); break;
+    case 'chapterCelebrate':  app.innerHTML = renderChapterCelebrate(); createConfetti(40); break;
+    case 'gameCelebrate':     app.innerHTML = renderGameCelebrate(); createConfetti(80); break;
   }
   attachEvents();
+}
+
+function createConfetti(count) {
+  document.querySelectorAll('.confetti-container').forEach(e => e.remove());
+  const colors = ['#003F87','#FFD700','#4B9CD3','#E53935','#43A047','#FB8C00','#AB47BC','#FFFFFF'];
+  const container = document.createElement('div');
+  container.className = 'confetti-container';
+  for(let i = 0; i < count; i++) {
+    const p = document.createElement('div');
+    p.className = 'confetti-piece';
+    const size = Math.random() * 10 + 6;
+    p.style.cssText = `
+      left:${Math.random()*100}vw;
+      width:${size}px; height:${size}px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      border-radius:${Math.random()>0.5?'50%':'2px'};
+      animation-duration:${Math.random()*2.5+2}s;
+      animation-delay:${Math.random()*1.5}s;
+    `;
+    container.appendChild(p);
+  }
+  document.body.appendChild(container);
+  setTimeout(() => container.remove(), 6000);
 }
 
 function renderMenu() {
@@ -1060,12 +1174,28 @@ function renderChapterEnd() {
   }
 
   // מקרה 3: הושלם בהצלחה (אפס שגויות)
+  const p = progress[S.chapterIdx];
+  const chapterAllDone = p.easy > 0 && p.medium > 0 && p.hard > 0;
+  const allChaptersDone = CHAPTERS.every((_, i) =>
+    progress[i].easy > 0 && progress[i].medium > 0 && progress[i].hard > 0
+  );
+
+  // אחרי רמה קשה — בדוק אם צריך מסך חגיגה
+  if(S.levelKey === 'hard') {
+    if(allChaptersDone) {
+      // חגיגת סיום המשחק כולו
+      setTimeout(() => { S.screen = 'gameCelebrate'; render(); }, 1200);
+    } else if(chapterAllDone) {
+      // חגיגת סיום פרק
+      setTimeout(() => { S.screen = 'chapterCelebrate'; render(); }, 1200);
+    }
+  }
+
   let nextSection = '';
   if(S.chapterIdx + 1 < CHAPTERS.length) {
-    if(progress[S.chapterIdx+1].unlocked) {
+    if(progress[S.chapterIdx+1] && progress[S.chapterIdx+1].unlocked) {
       nextSection = `<button class="end-btn btn-primary" data-action="nextChapter">פרק הבא: ${CHAPTERS[S.chapterIdx+1].title} →</button>`;
-    } else {
-      const p = progress[S.chapterIdx];
+    } else if(S.levelKey !== 'hard') {
       const missing = [];
       if(!p.easy) missing.push('קל');
       if(!p.medium) missing.push('בינוני');
@@ -1076,6 +1206,11 @@ function renderChapterEnd() {
       }
     }
   }
+
+  // אחרי רמה קשה — אין כפתור "בחרי רמה אחרת"
+  const levelSelectBtn = S.levelKey !== 'hard'
+    ? `<button class="end-btn btn-secondary" data-action="goLevelSelect">בחרי רמה אחרת</button>`
+    : '';
 
   return `
     <div class="app-header">
@@ -1088,8 +1223,59 @@ function renderChapterEnd() {
       <div class="score-text">${pct}% נכון</div>
       <div class="score-sub">${S.firstCorrect} מתוך ${S.firstTotal} שאלות נכונות מהסבב הראשון</div>
       ${nextSection}
-      <button class="end-btn btn-secondary" data-action="goLevelSelect">בחרי רמה אחרת</button>
+      ${levelSelectBtn}
       <button class="end-btn btn-secondary" data-action="goMenu" style="margin-top:4px">חזרה לתפריט</button>
+    </div>`;
+}
+
+// ================================================================
+// CELEBRATION SCREENS
+// ================================================================
+function renderChapterCelebrate() {
+  const ch = CHAPTERS[S.chapterIdx];
+  const p = progress[S.chapterIdx];
+  const totalChapStars = (p.easy||0) + (p.medium||0) + (p.hard||0);
+  const nextExists = S.chapterIdx + 1 < CHAPTERS.length;
+
+  return `
+    <div class="app-header">
+      <div style="height:10px"></div>
+    </div>
+    <div class="celebrate-card">
+      <span class="celebrate-emoji">🎊</span>
+      <div class="celebrate-title">פרק הושלם!</div>
+      <div class="celebrate-sub">${ch.icon} ${ch.title}</div>
+      <div class="celebrate-stars">${'★'.repeat(totalChapStars)}${'☆'.repeat(9-totalChapStars)}</div>
+      <div style="font-size:0.9rem;color:var(--gray);margin-bottom:20px">
+        השלמת את כל שלושת הרמות של הפרק הזה 💪
+      </div>
+      ${nextExists
+        ? `<button class="end-btn btn-primary" data-action="nextChapter">פרק הבא: ${CHAPTERS[S.chapterIdx+1].title} →</button>`
+        : ''}
+      <button class="end-btn btn-secondary" data-action="goMenu" style="margin-top:8px">חזרה לתפריט</button>
+    </div>`;
+}
+
+function renderGameCelebrate() {
+  const total = totalStars();
+  const maxTotal = CHAPTERS.length * 3 * 3;
+
+  return `
+    <div style="padding:20px 0">
+      <div class="game-complete-card">
+        <span class="trophy-emoji">🏆</span>
+        <div class="game-complete-title">השלמת את כל המשחק!</div>
+        <div class="game-complete-sub">
+          עברת את כל 7 הפרקים, כל 3 הרמות,<br>
+          וענית נכון על כל השאלות.<br>
+          את מוכנה לבגרות! ✡️
+        </div>
+        <div class="game-total-stars">${'★'.repeat(total > 0 ? Math.min(total,9) : 0)}</div>
+        <div style="font-size:1rem;opacity:0.9;margin-bottom:20px">${total} / ${maxTotal} כוכבים</div>
+        <button class="end-btn" style="background:var(--gold);color:#333;font-weight:900;font-size:1.1rem" data-action="goMenu">
+          🎉 חזרה לתפריט
+        </button>
+      </div>
     </div>`;
 }
 
