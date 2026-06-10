@@ -769,6 +769,7 @@ let S = {
   firstCorrect: 0,
   firstTotal: 0,
   wrongIdxs: [],
+  retryWrongIdxs: [],
   isRetry: false,
   answered: false,
   lastCorrect: false,
@@ -1005,16 +1006,18 @@ function renderChapterEnd() {
   const stars = starsForScore(pct);
   const ch = CHAPTERS[S.chapterIdx];
   const wrongCount = S.wrongIdxs.length;
+  const retryWrongCount = S.retryWrongIdxs.length;
 
-  // Save stars
+  // Save stars only on first round
   if(!S.isRetry) {
     const prev = progress[S.chapterIdx][S.levelKey] || 0;
     if(stars > prev) {
       progress[S.chapterIdx][S.levelKey] = stars;
     }
-    // Unlock next chapter
-    const hasCompleted = progress[S.chapterIdx].easy > 0;
-    if(hasCompleted && S.chapterIdx + 1 < CHAPTERS.length) {
+    // Unlock next chapter only after ALL THREE levels completed
+    const p = progress[S.chapterIdx];
+    const allThreeDone = p.easy > 0 && p.medium > 0 && p.hard > 0;
+    if(allThreeDone && S.chapterIdx + 1 < CHAPTERS.length) {
       progress[S.chapterIdx+1].unlocked = true;
     }
     saveProgress(progress);
@@ -1024,16 +1027,53 @@ function renderChapterEnd() {
     <span class="${n<=stars?'star-filled':'star-empty'} star-anim" style="animation-delay:${i*0.15}s">${n<=stars?'★':'☆'}</span>
   `).join('');
 
-  let retrySection = '';
-  if(wrongCount > 0 && !S.isRetry) {
-    retrySection = `
-      <div class="retry-info">⚠️ ענית ${wrongCount} שאלות בצורה שגויה</div>
-      <button class="end-btn btn-retry" data-action="startRetry">🔄 חזרה על שאלות שגויות</button>`;
+  // מקרה 1: סבב ראשון עם שאלות שגויות — חובה לחזור
+  if(!S.isRetry && wrongCount > 0) {
+    return `
+      <div class="app-header">
+        <button class="back-btn" data-action="goMenu">← תפריט ראשי</button>
+      </div>
+      <div class="end-card">
+        <div class="end-title">כמעט! 💪</div>
+        <div class="end-sub">${ch.title} · רמה ${LEVEL_NAMES[S.levelKey]}</div>
+        <div class="stars-display">${starsHtml}</div>
+        <div class="score-text">${pct}% נכון</div>
+        <div class="score-sub">${S.firstCorrect} מתוך ${S.firstTotal} נכונות בסבב ראשון</div>
+        <div class="retry-info">⚠️ חובה לענות נכון על ${wrongCount} שאלות שגויות לפני שממשיכים!</div>
+        <button class="end-btn btn-retry" data-action="startRetry">🔄 חזרה חובה על שאלות שגויות</button>
+      </div>`;
   }
 
+  // מקרה 2: סבב חזרה — עדיין יש שגויות — חובה לחזור שוב
+  if(S.isRetry && retryWrongCount > 0) {
+    return `
+      <div class="app-header">
+        <button class="back-btn" data-action="goMenu">← תפריט ראשי</button>
+      </div>
+      <div class="end-card">
+        <div class="end-title">נסי שוב 🔄</div>
+        <div class="end-sub">${ch.title} · רמה ${LEVEL_NAMES[S.levelKey]}</div>
+        <div class="retry-info">⚠️ עדיין ${retryWrongCount} שאלות שגויות — חייבים להצליח בכולן כדי להמשיך!</div>
+        <button class="end-btn btn-retry" data-action="startRetryAgain">🔄 חזרה על השגויות שוב</button>
+      </div>`;
+  }
+
+  // מקרה 3: הושלם בהצלחה (אפס שגויות)
   let nextSection = '';
-  if(S.chapterIdx + 1 < CHAPTERS.length && progress[S.chapterIdx+1].unlocked) {
-    nextSection = `<button class="end-btn btn-primary" data-action="nextChapter">פרק הבא: ${CHAPTERS[S.chapterIdx+1].title} →</button>`;
+  if(S.chapterIdx + 1 < CHAPTERS.length) {
+    if(progress[S.chapterIdx+1].unlocked) {
+      nextSection = `<button class="end-btn btn-primary" data-action="nextChapter">פרק הבא: ${CHAPTERS[S.chapterIdx+1].title} →</button>`;
+    } else {
+      const p = progress[S.chapterIdx];
+      const missing = [];
+      if(!p.easy) missing.push('קל');
+      if(!p.medium) missing.push('בינוני');
+      if(!p.hard) missing.push('קשה');
+      if(missing.length > 0) {
+        nextSection = `<div class="retry-info" style="background:#E3F2FD;color:#1565C0;font-weight:700">
+          🔒 כדי לפתוח את הפרק הבא — השלימי גם רמת: ${missing.join(' + ')}</div>`;
+      }
+    }
   }
 
   return `
@@ -1041,12 +1081,11 @@ function renderChapterEnd() {
       <button class="back-btn" data-action="goMenu">← תפריט ראשי</button>
     </div>
     <div class="end-card">
-      <div class="end-title">${S.isRetry ? 'סבב החזרה הסתיים!' : 'כל הכבוד! 🎉'}</div>
+      <div class="end-title">${S.isRetry ? 'כל הכבוד! ✅' : 'מעולה! 🎉'}</div>
       <div class="end-sub">${ch.title} · רמה ${LEVEL_NAMES[S.levelKey]}</div>
       <div class="stars-display">${starsHtml}</div>
       <div class="score-text">${pct}% נכון</div>
       <div class="score-sub">${S.firstCorrect} מתוך ${S.firstTotal} שאלות נכונות מהסבב הראשון</div>
-      ${retrySection}
       ${nextSection}
       <button class="end-btn btn-secondary" data-action="goLevelSelect">בחרי רמה אחרת</button>
       <button class="end-btn btn-secondary" data-action="goMenu" style="margin-top:4px">חזרה לתפריט</button>
@@ -1103,6 +1142,8 @@ function handleAction(e) {
       S.firstTotal++;
       if(S.lastCorrect) S.firstCorrect++;
       else S.wrongIdxs.push(S.currentQ);
+    } else {
+      if(!S.lastCorrect) S.retryWrongIdxs.push(S.currentQ);
     }
     render();
   }
@@ -1119,6 +1160,10 @@ function handleAction(e) {
   }
   else if(action === 'startRetry') {
     const wrongs = S.wrongIdxs.map(i => S.questions[i]);
+    startRetry(wrongs);
+  }
+  else if(action === 'startRetryAgain') {
+    const wrongs = S.retryWrongIdxs.map(i => S.questions[i]);
     startRetry(wrongs);
   }
   else if(action === 'nextChapter') {
@@ -1151,6 +1196,7 @@ function startRetry(wrongQs) {
   S.firstCorrect = 0;
   S.firstTotal = 0;
   S.wrongIdxs = [];
+  S.retryWrongIdxs = [];
   S.screen = 'playing';
   render();
 }
