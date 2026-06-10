@@ -883,8 +883,9 @@ function renderMenu() {
       </div>
     </div>
     ${chapCards}
-    <div style="text-align:center;color:rgba(255,255,255,0.5);font-size:0.75rem;padding:8px 0 20px">
-      ✡ התקדמות נשמרת אוטומטית ✡
+    <div style="text-align:center;padding:8px 0 24px">
+      <div style="color:rgba(255,255,255,0.5);font-size:0.75rem;margin-bottom:10px">✡ התקדמות נשמרת אוטומטית ✡</div>
+      <button data-action="resetConfirm" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.3);color:rgba(255,255,255,0.6);border-radius:20px;padding:7px 18px;font-size:0.8rem;cursor:pointer;font-family:inherit">🔄 איפוס התקדמות</button>
     </div>`;
 }
 
@@ -1165,6 +1166,14 @@ function handleAction(e) {
   else if(action === 'startRetryAgain') {
     const wrongs = S.retryWrongIdxs.map(i => S.questions[i]);
     startRetry(wrongs);
+  }
+  else if(action === 'resetConfirm') {
+    if(confirm('למחוק את כל ההתקדמות ולהתחיל מחדש?')) {
+      localStorage.removeItem(STORAGE_KEY);
+      progress = loadProgress();
+      S.screen = 'menu';
+      render();
+    }
   }
   else if(action === 'nextChapter') {
     S.chapterIdx = S.chapterIdx + 1;
